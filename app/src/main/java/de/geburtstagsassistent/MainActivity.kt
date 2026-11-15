@@ -30,8 +30,8 @@ data class ViewState(
 
 data class AppActions(
     val sync:()->Unit,
-    val savePerson:(String,String,String)->Unit,
-    val birthday:(Person,String)->Unit,
+    val savePerson:(String,String,String,Boolean)->Unit,
+    val birthday:(Person,String,Boolean)->Unit,
     val mute:(Person)->Unit,
     val ignore:(Person)->Unit,
     val editInContacts:(Person?)->Unit,
@@ -63,8 +63,8 @@ class MainActivity:ComponentActivity(){
         setContent {
             ModernApp(state,AppActions(
                 sync={startSync(true)},
-                savePerson={name,phone,birthday->savePerson(name,phone,birthday)},
-                birthday={person,date->saveBirthday(person,date)},
+                savePerson={name,phone,birthday,saveGoogle->savePerson(name,phone,birthday,saveGoogle)},
+                birthday={person,date,saveGoogle->saveBirthday(person,date,saveGoogle)},
                 mute={person->db.updatePerson(person.copy(muted=!person.muted));refresh()},
                 ignore={person->db.updatePerson(person.copy(ignored=!person.ignored));refresh()},
                 editInContacts={person->editContact(person)},
@@ -130,23 +130,23 @@ class MainActivity:ComponentActivity(){
     }
     private fun parse(raw:String):String?=try{if(raw.isBlank())null else Dates.parse(raw)}
         catch(e:Exception){show("Datum ungültig: "+(e.message?:""));null}
-    private fun savePerson(name:String,phone:String,birthday:String){
+    private fun savePerson(name:String,phone:String,birthday:String,saveGoogle:Boolean){
         if(name.isBlank()){show("Bitte einen Namen eingeben");return}
         if(birthday.isNotBlank()&&parse(birthday)==null)return
         val date=if(birthday.isBlank())null else Dates.parse(birthday)
         val id=db.addPerson(name.trim(),phone.trim().ifEmpty{null},null,date)
         if(id>0&&date!=null)db.addEvent("BIRTHDAY",id,null,date,"Geburtstag")
         refresh()
-        show("Person gespeichert"+if(date!=null)" · über 'In Kontakte' auch bei Google speichern" else "")
+        if(date!=null&&saveGoogle)editContact(db.person(id)) else show("Person lokal gespeichert")
     }
-    private fun saveBirthday(person:Person,value:String){
+    private fun saveBirthday(person:Person,value:String,saveGoogle:Boolean){
         val date=parse(value)?:return
         db.updatePerson(person.copy(birthday=date))
         val e=db.events().firstOrNull{it.a==person.id&&it.type=="BIRTHDAY"}
         if(e==null)db.addEvent("BIRTHDAY",person.id,null,date,"Geburtstag")
         else db.change(e.copy(date=date))
         refresh()
-        show("Geburtstag gespeichert. Google-Kontakt über 'In Kontakte' aktualisieren.")
+        if(saveGoogle)editContact(db.person(person.id)) else show("Geburtstag lokal gespeichert")
     }
     private fun addOccasion(type:String,a:Long,b:Long?,value:String,title:String){
         val date=parse(value)?:return
