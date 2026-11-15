@@ -115,32 +115,3 @@ object Dates{
   return starts[Math.floorMod(version,starts.size)]+" Alles Gute"+(years?.let{" zum $it. Geburtstag"}?:" zum Geburtstag")+"! 🎂 "+ends[Math.floorMod(version/starts.size,ends.size)]
  }
 }
-object Contacts {
- fun sync(ctx:Context,db:Store):Int{
-  if(ctx.checkSelfPermission(Manifest.permission.READ_CONTACTS)!=PackageManager.PERMISSION_GRANTED)return 0
-  var count=0
-  ctx.contentResolver.query(ContactsContract.Contacts.CONTENT_URI,arrayOf(ContactsContract.Contacts._ID,ContactsContract.Contacts.LOOKUP_KEY,ContactsContract.Contacts.DISPLAY_NAME_PRIMARY),null,null,null)?.use{c->
-   while(c.moveToNext()){
-    val cid=c.getLong(0);val key=c.getString(1)?:continue;val name=c.getString(2)?:continue
-    var phone:String?=null;var birthday:String?=null;var wedding:String?=null
-    ctx.contentResolver.query(ContactsContract.Data.CONTENT_URI,arrayOf(ContactsContract.Data.MIMETYPE,ContactsContract.CommonDataKinds.Event.START_DATE,ContactsContract.CommonDataKinds.Event.TYPE,ContactsContract.CommonDataKinds.Phone.NUMBER),ContactsContract.Data.CONTACT_ID+"=?",arrayOf("$cid"),null)?.use{d->
-     while(d.moveToNext()){
-      val mime=d.getString(0)
-      if(mime==ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE&&phone==null)phone=d.getString(3)
-      if(mime==ContactsContract.CommonDataKinds.Event.CONTENT_ITEM_TYPE){
-       val date=d.getString(1)?.let(Dates::contactDate)
-       if(d.getInt(2)==ContactsContract.CommonDataKinds.Event.TYPE_BIRTHDAY)birthday=date
-       if(d.getInt(2)==ContactsContract.CommonDataKinds.Event.TYPE_ANNIVERSARY)wedding=date
-      }
-     }
-    }
-    val old=db.people().firstOrNull{it.lookup==key}
-    val id=if(old!=null){db.updatePerson(old.copy(name=name,phone=phone?:old.phone,birthday=birthday?:old.birthday));old.id}
-      else {count++;db.addPerson(name,phone,key,birthday)}
-    if(id>0&&birthday!=null&&db.events().none{it.type=="BIRTHDAY"&&it.a==id})db.addEvent("BIRTHDAY",id,null,birthday!!,"")
-    if(id>0&&wedding!=null&&db.events().none{it.type=="WEDDING"&&it.a==id&&it.date==wedding})db.addEvent("WEDDING",id,null,wedding!!,"Hochzeitstag")
-   }
-  }
-  return count
- }
-}
