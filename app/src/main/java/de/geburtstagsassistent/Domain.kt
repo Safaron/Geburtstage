@@ -56,7 +56,7 @@ class Store(ctx:Context):SQLiteOpenHelper(ctx,"birthdays.db",null,1){
  }
  fun dismissed(a:Long,b:Long)=readableDatabase.rawQuery("SELECT 1 FROM dismissed WHERE a=? AND b=?",arrayOf("$a","$b")).use{it.moveToFirst()}
  fun dismiss(a:Long,b:Long){writableDatabase.execSQL("INSERT OR IGNORE INTO dismissed VALUES(?,?)",arrayOf(a,b))}
- fun extraDays():Set<LocalDate>=readableDatabase.rawQuery("SELECT day FROM school_free",null).use{c->buildSet{while(c.moveToNext())add(LocalDate.parse(c.getString(0))) }}
+ fun extraDays():Set<LocalDate> = readableDatabase.rawQuery("SELECT day FROM school_free",null).use{c->buildSet{while(c.moveToNext())add(LocalDate.parse(c.getString(0))) }}
  fun addExtra(day:LocalDate){writableDatabase.execSQL("INSERT OR IGNORE INTO school_free VALUES(?)",arrayOf(day.toString()))}
 }
 object Dates{
